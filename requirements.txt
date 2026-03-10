@@ -1,0 +1,4 @@
+claude-agent-sdk
+tomli>=2.0;python_version<"3.11"
+tomli-w>=1.0
+streamlit>=1.30

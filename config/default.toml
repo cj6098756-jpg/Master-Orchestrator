@@ -1,0 +1,26 @@
+# Master Orchestrator — Default Configuration
+# Override via CLI flags or a custom config file: orchestrate run --config my.toml
+
+[models]
+primary = "sonnet"       # Tier 0 orchestrator model
+tier1   = "sonnet"       # Tier 1 specialist model
+tier2   = "haiku"        # Tier 2 niche specialist model (cheaper for depth)
+# fallback = "haiku"     # Fallback model if primary fails
+
+[ralph_loop]
+max_iterations    = 5    # Maximum refinement iterations
+quality_threshold = 0.8  # Average confidence threshold for auto-completion (0.0-1.0)
+# completion_promise = "ORCHESTRATION_COMPLETE"  # Exact string match to stop loop
+
+[logging]
+level  = "INFO"          # DEBUG, INFO, WARNING, ERROR
+log_dir = "logs"
+format = "markdown"      # markdown or json
+
+[session]
+dir = "sessions"         # Directory for session persistence
+
+[orchestrator]
+permission_mode      = "acceptEdits"  # acceptEdits, bypassPermissions, default
+max_turns_per_agent  = 10             # Max turns per individual agent call
+# max_budget_usd     = 5.0           # Hard cost cap per orchestration run

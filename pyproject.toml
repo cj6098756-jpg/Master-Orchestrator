@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "master-orchestrator"
+version = "0.1.0"
+description = "Multi-agent orchestrator using Claude Agent SDK with Ralph Wiggum iterative loops"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "claude-agent-sdk",
+    "tomli>=2.0;python_version<'3.11'",
+    "tomli-w>=1.0",
+]
+
+[project.scripts]
+orchestrate = "master_orchestrator.cli:main"
+
+[project.optional-dependencies]
+dashboard = [
+    "streamlit>=1.30",
+]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
