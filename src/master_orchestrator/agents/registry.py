@@ -126,6 +126,27 @@ class AgentRegistry:
         """Return {key: description} for all Tier 2 agents."""
         return {k: t.description for k, t in self._tier2.items()}
 
+    def resolve_key(self, name_or_key: str) -> str | None:
+        """Resolve an agent name or key to a canonical registry key.
+
+        Handles both exact key matches and display name lookups.
+        This is critical for escalation routing where agents return
+        display names but the registry is indexed by key.
+        """
+        # Direct key match (fast path)
+        if name_or_key in self._tier1 or name_or_key in self._tier2:
+            return name_or_key
+        # Reverse lookup by display name
+        name_lower = name_or_key.lower().strip()
+        for key, t in {**self._tier1, **self._tier2}.items():
+            if t.name.lower() == name_lower:
+                return key
+        # Fuzzy: check if the key is contained in the name
+        for key, t in {**self._tier1, **self._tier2}.items():
+            if key in name_lower or name_lower in key:
+                return key
+        return None
+
     def get_escalation_targets(self, tier1_key: str) -> list[str]:
         """Find Tier 2 agents that can be escalated to from a given Tier 1 agent."""
         return [

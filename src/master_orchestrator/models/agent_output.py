@@ -27,6 +27,12 @@ class AgentReport:
     escalation_notes: str | None = None
     recommended_output: str = ""
 
+    # --- Identity fields (injected by dispatcher, not from model output) ---
+    agent_key: str = ""  # Canonical registry key for escalation routing
+    tier: int = 0  # 1 or 2, set by dispatcher
+    # --- Escalation tracking (set by the loop, not the model) ---
+    escalation_resolved: bool = False  # True once Tier 2 actually ran for this
+
     def to_dict(self) -> dict:
         return {
             "agent_name": self.agent_name,
@@ -39,6 +45,9 @@ class AgentReport:
             "escalation_used": self.escalation_used,
             "escalation_notes": self.escalation_notes,
             "recommended_output": self.recommended_output,
+            "agent_key": self.agent_key,
+            "tier": self.tier,
+            "escalation_resolved": self.escalation_resolved,
         }
 
     @classmethod
@@ -54,6 +63,9 @@ class AgentReport:
             escalation_used=bool(data.get("escalation_used", False)),
             escalation_notes=data.get("escalation_notes"),
             recommended_output=data.get("recommended_output", ""),
+            agent_key=data.get("agent_key", ""),
+            tier=data.get("tier", 0),
+            escalation_resolved=bool(data.get("escalation_resolved", False)),
         )
 
     @property
@@ -61,11 +73,16 @@ class AgentReport:
         """Check if this report indicates escalation is needed."""
         return self.escalation_used or self.confidence_level < 0.5
 
+    @property
+    def escalation_pending(self) -> bool:
+        """True if escalation was requested but not yet resolved."""
+        return self.needs_escalation and not self.escalation_resolved
+
     def summary(self) -> str:
         """One-line summary of the report."""
         esc = " [ESCALATION]" if self.escalation_used else ""
         return (
-            f"[{self.agent_name}] confidence={self.confidence_level:.1%} "
+            f"[{self.agent_name} ({self.agent_key})] confidence={self.confidence_level:.1%} "
             f"risks={len(self.risks_and_gaps)}{esc}"
         )
 

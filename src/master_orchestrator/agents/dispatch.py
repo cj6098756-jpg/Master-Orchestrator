@@ -15,6 +15,7 @@ from claude_agent_sdk import (
 from master_orchestrator.models.agent_output import AgentReport
 
 if TYPE_CHECKING:
+    from master_orchestrator.agents.registry import AgentRegistry
     from master_orchestrator.config import OrchestratorConfig
     from master_orchestrator.logging.logger import OrchestratorLogger
 
@@ -29,9 +30,11 @@ class AgentDispatcher:
         self,
         config: OrchestratorConfig,
         logger: OrchestratorLogger | None = None,
+        registry: AgentRegistry | None = None,
     ):
         self.config = config
         self.logger = logger
+        self.registry = registry  # Used for agent_key resolution
 
     async def dispatch_phase(
         self,
@@ -39,6 +42,7 @@ class AgentDispatcher:
         system_prompt: str,
         agent_definitions: dict[str, AgentDefinition],
         hooks: dict | None = None,
+        tier: int = 1,
     ) -> tuple[str, list[AgentReport], str | None]:
         """Execute a single dispatch phase (Tier 1 or Tier 2).
 
@@ -47,6 +51,7 @@ class AgentDispatcher:
             system_prompt: The system prompt for the orchestrator.
             agent_definitions: Dict of agent key -> AgentDefinition.
             hooks: Optional SDK hooks for observation.
+            tier: Tier level (1 or 2) for tagging reports.
 
         Returns:
             Tuple of (raw_result_text, parsed_agent_reports, session_id).
@@ -100,6 +105,14 @@ class AgentDispatcher:
 
         # Parse structured reports from the result
         reports = self._parse_agent_reports(result_text)
+
+        # Inject agent_key and tier into every parsed report
+        known_keys = set(agent_definitions.keys())
+        for report in reports:
+            report.tier = tier
+            resolved = self._resolve_agent_key(report.agent_name, known_keys)
+            if resolved:
+                report.agent_key = resolved
 
         return result_text, reports, session_id
 
@@ -193,6 +206,34 @@ class AgentDispatcher:
                 return AgentReport.from_dict(data)
         except (json.JSONDecodeError, KeyError, TypeError):
             pass
+        return None
+
+    def _resolve_agent_key(
+        self,
+        agent_name: str,
+        known_keys: set[str],
+    ) -> str | None:
+        """Resolve an agent display name to a canonical registry key.
+
+        Strategy:
+        1. Check if agent_name is already a known key from this phase
+        2. Use registry.resolve_key() for fuzzy matching
+        3. Return None if unresolvable
+        """
+        # Direct match against keys used in this dispatch phase
+        if agent_name in known_keys:
+            return agent_name
+
+        # Lowercase match against known keys
+        name_lower = agent_name.lower().strip()
+        for key in known_keys:
+            if key in name_lower or name_lower in key:
+                return key
+
+        # Fall back to registry resolver if available
+        if self.registry:
+            return self.registry.resolve_key(agent_name)
+
         return None
 
     def _make_error_report(

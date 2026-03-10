@@ -3,6 +3,10 @@
 Tier 0: Interprets user objectives, allocates specialist agents,
 validates outputs, and synthesizes final results.
 Uses Ralph Wiggum iterative loops for progressive refinement.
+
+Supports two phases:
+1. Analysis: Ralph Wiggum loop → 10-section OrchestrationResult
+2. Execution: OrchestrationResult → ExecutionPlan → WorkerTask dispatch
 """
 
 from __future__ import annotations
@@ -14,6 +18,8 @@ from master_orchestrator.agents.dispatch import AgentDispatcher
 from master_orchestrator.agents.factory import AgentFactory
 from master_orchestrator.agents.registry import AgentRegistry
 from master_orchestrator.config import OrchestratorConfig, load_config
+from master_orchestrator.execution.engine import ExecutionEngine
+from master_orchestrator.execution.models import ExecutionPlan
 from master_orchestrator.logging.logger import OrchestratorLogger
 from master_orchestrator.models.agent_output import OrchestrationResult
 from master_orchestrator.orchestrator.ralph_loop import RalphLoop
@@ -26,7 +32,12 @@ class MasterOrchestrator:
     """Tier 0: Master Orchestrator.
 
     Entry point for all orchestration runs. Ties together the registry,
-    factory, dispatcher, parser, synthesizer, loop, and session manager.
+    factory, dispatcher, parser, synthesizer, loop, session manager,
+    and execution engine.
+
+    Two-phase workflow:
+      1. run()     → Analysis phase → OrchestrationResult (10-section report)
+      2. execute() → Execution phase → ExecutionPlan with completed WorkerTasks
     """
 
     def __init__(self, config: OrchestratorConfig | None = None):
@@ -36,7 +47,7 @@ class MasterOrchestrator:
         self.logger = OrchestratorLogger(self.config)
         self.registry = AgentRegistry(self.config.agents_config_path)
         self.factory = AgentFactory(self.registry, self.config)
-        self.dispatcher = AgentDispatcher(self.config, self.logger)
+        self.dispatcher = AgentDispatcher(self.config, self.logger, self.registry)
         self.task_parser = TaskParser(
             self.registry, self.config, self.dispatcher, self.logger
         )
@@ -53,6 +64,15 @@ class MasterOrchestrator:
             synthesizer=self.synthesizer,
             session_manager=self.session_manager,
             logger=self.logger,
+        )
+
+        # Execution engine
+        self.execution_engine = ExecutionEngine(
+            config=self.config,
+            registry=self.registry,
+            dispatcher=self.dispatcher,
+            logger=self.logger,
+            max_concurrent=getattr(self.config, 'max_concurrent_tasks', 3),
         )
 
     async def run(
@@ -114,6 +134,73 @@ class MasterOrchestrator:
         )
 
         return result
+
+    # ------------------------------------------------------------------
+    # Execution Phase
+    # ------------------------------------------------------------------
+
+    async def plan_execution(
+        self,
+        result: OrchestrationResult,
+    ) -> ExecutionPlan:
+        """Create an execution plan from an orchestration result.
+
+        Phase 2a: Converts the 10-section analysis into executable tasks.
+        Returns the plan for user review before execution.
+        """
+        self.logger.log_event(
+            "orchestrator",
+            f"Planning execution for: {result.objective[:80]}",
+        )
+        return await self.execution_engine.plan(result)
+
+    async def execute(
+        self,
+        plan: ExecutionPlan,
+    ) -> ExecutionPlan:
+        """Execute an approved execution plan.
+
+        Phase 2b: Dispatches worker tasks to the agent pool.
+        """
+        self.logger.log_event(
+            "orchestrator",
+            f"Executing plan {plan.plan_id}: {len(plan.tasks)} tasks",
+        )
+        return await self.execution_engine.execute(plan)
+
+    async def run_and_execute(
+        self,
+        objective: str,
+        max_iterations: int | None = None,
+        auto_approve: bool = True,
+    ) -> tuple[OrchestrationResult, ExecutionPlan]:
+        """Full pipeline: analyze → plan → execute.
+
+        Convenience method that runs both phases end-to-end.
+
+        Returns:
+            Tuple of (OrchestrationResult, ExecutionPlan).
+        """
+        # Phase 1: Analysis
+        result = await self.run(
+            objective=objective,
+            max_iterations=max_iterations,
+        )
+
+        # Phase 2: Execution
+        plan = await self.execution_engine.plan_and_execute(
+            result, auto_approve=auto_approve
+        )
+
+        return result, plan
+
+    def format_plan(self, plan: ExecutionPlan) -> str:
+        """Format an ExecutionPlan for display."""
+        return self.execution_engine.format_plan(plan)
+
+    def format_execution_results(self, plan: ExecutionPlan) -> str:
+        """Format execution results for display."""
+        return self.execution_engine.format_results(plan)
 
     def format_result(
         self,

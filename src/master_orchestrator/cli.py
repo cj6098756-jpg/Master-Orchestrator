@@ -3,6 +3,7 @@
 Usage:
     orchestrate run "Build a REST API for task management"
     orchestrate run "Design a user auth system" --max-iterations 3 --model opus
+    orchestrate execute "Build a REST API" --auto
     orchestrate resume abc123def456
     orchestrate sessions
     orchestrate agents --tier 1
@@ -31,6 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
             "Examples:\n"
             '  orchestrate run "Build a REST API for task management"\n'
             '  orchestrate run "Design auth system" --max-iterations 3 --model opus\n'
+            '  orchestrate execute "Build a REST API" --auto\n'
             "  orchestrate resume abc123def456\n"
             "  orchestrate sessions\n"
             "  orchestrate agents --tier 1\n"
@@ -90,6 +92,57 @@ def build_parser() -> argparse.ArgumentParser:
         help="Working directory for agents (default: current directory)",
     )
     run_parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose logging",
+    )
+
+    # --- execute ---
+    exec_parser = subparsers.add_parser(
+        "execute",
+        help="Analyze and execute — full pipeline",
+        description=(
+            "Run analysis (Ralph Wiggum loop), then convert findings "
+            "into executable tasks and dispatch worker agents."
+        ),
+    )
+    exec_parser.add_argument(
+        "objective",
+        type=str,
+        help="The goal or task to analyze and execute",
+    )
+    exec_parser.add_argument(
+        "--max-iterations", "-n",
+        type=int,
+        default=None,
+        help="Maximum analysis iterations (default: from config)",
+    )
+    exec_parser.add_argument(
+        "--auto",
+        action="store_true",
+        default=False,
+        help="Auto-approve execution plan without user review",
+    )
+    exec_parser.add_argument(
+        "--model", "-m",
+        type=str,
+        default=None,
+        choices=["opus", "sonnet", "haiku"],
+        help="Primary model override",
+    )
+    exec_parser.add_argument(
+        "--config", "-c",
+        type=str,
+        default=None,
+        help="Path to config file",
+    )
+    exec_parser.add_argument(
+        "--cwd",
+        type=str,
+        default=None,
+        help="Working directory for agents",
+    )
+    exec_parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Enable verbose logging",
@@ -206,6 +259,72 @@ async def cmd_run(args: argparse.Namespace) -> None:
     print(output)
 
 
+async def cmd_execute(args: argparse.Namespace) -> None:
+    """Handle the 'execute' command — full analyze + execute pipeline."""
+    from master_orchestrator.config import load_config
+    from master_orchestrator.orchestrator.core import MasterOrchestrator
+
+    config = load_config(
+        path=args.config,
+        overrides={
+            "model": args.model,
+            "max_iterations": args.max_iterations,
+            "cwd": args.cwd,
+            "verbose": args.verbose,
+        },
+    )
+
+    orchestrator = MasterOrchestrator(config)
+
+    print(f"\n{'=' * 72}")
+    print("MASTER ORCHESTRATOR — Analyze & Execute")
+    print(f"Objective: {args.objective}")
+    print(f"Model: {config.models.primary}")
+    print(f"{'=' * 72}\n")
+
+    # Phase 1: Analysis
+    print("Phase 1: Analyzing objective...\n")
+    result = await orchestrator.run(
+        objective=args.objective,
+        max_iterations=args.max_iterations,
+    )
+
+    # Display analysis report
+    output = orchestrator.format_result(result)
+    print(output)
+
+    # Phase 2: Plan execution
+    print(f"\n{'=' * 72}")
+    print("Phase 2: Planning execution...")
+    print(f"{'=' * 72}\n")
+
+    plan = await orchestrator.plan_execution(result)
+    print(orchestrator.format_plan(plan))
+
+    if not args.auto:
+        # Ask for confirmation
+        response = input("\nExecute this plan? [y/N]: ").strip().lower()
+        if response not in ("y", "yes"):
+            print("Execution cancelled.")
+            return
+
+    # Phase 3: Execute
+    print(f"\n{'=' * 72}")
+    print("Phase 3: Executing tasks...")
+    print(f"{'=' * 72}\n")
+
+    executed_plan = await orchestrator.execute(plan)
+
+    # Display results
+    print(orchestrator.format_execution_results(executed_plan))
+
+    # Save the plan
+    plan_path = orchestrator.execution_engine.save_plan(
+        executed_plan, config.session_dir
+    )
+    print(f"\nExecution plan saved to: {plan_path}")
+
+
 async def cmd_resume(args: argparse.Namespace) -> None:
     """Handle the 'resume' command."""
     from master_orchestrator.config import load_config
@@ -290,6 +409,7 @@ async def dispatch_command(args: argparse.Namespace) -> None:
     """Route to the correct async handler based on the command."""
     handlers = {
         "run": cmd_run,
+        "execute": cmd_execute,
         "resume": cmd_resume,
         "sessions": cmd_sessions,
         "agents": cmd_agents,

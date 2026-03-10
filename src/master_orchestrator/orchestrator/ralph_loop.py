@@ -156,6 +156,7 @@ class RalphLoop:
                     prompt=tier1_prompt,
                     system_prompt=tier1_system_prompt,
                     agent_definitions=tier1_agents,
+                    tier=1,
                 )
             )
             all_reports.extend(tier1_reports)
@@ -202,8 +203,16 @@ class RalphLoop:
                         prompt=tier2_prompt,
                         system_prompt=tier2_system_prompt,
                         agent_definitions=tier2_agents,
+                        tier=2,
                     )
                     all_reports.extend(tier2_reports)
+
+                    # Mark escalation as resolved on the source Tier 1 reports
+                    escalated_sources = {e["from_agent"] for e in escalation_needs}
+                    for report in tier1_reports:
+                        key = report.agent_key or report.agent_name
+                        if key in escalated_sources:
+                            report.escalation_resolved = True
             else:
                 self.logger.log_event("ralph_loop", "No escalations needed")
 
@@ -276,37 +285,53 @@ class RalphLoop:
         Escalation triggers:
         - Agent confidence < quality_threshold
         - Agent explicitly set escalation_used = True
-        - Agent has significant risks/gaps
+
+        Uses agent_key (canonical registry key) for escalation routing,
+        falling back to resolve_key() if agent_key wasn't set.
         """
         threshold = self.config.ralph_loop.quality_threshold
         escalations = []
 
         for report in reports:
-            needs_escalation = (
-                report.escalation_used
-                or report.confidence_level < threshold
-            )
+            if not report.needs_escalation and report.confidence_level >= threshold:
+                continue
 
-            if needs_escalation:
-                # Find Tier 2 targets for this agent
-                targets = self.registry.get_escalation_targets(report.agent_name)
-                if targets:
-                    for target in targets:
-                        reason = (
-                            report.escalation_notes
-                            or f"Low confidence ({report.confidence_level:.0%})"
-                        )
-                        escalations.append({
-                            "from_agent": report.agent_name,
-                            "to_agent": target,
-                            "reason": reason,
-                        })
+            # Resolve the canonical key for registry lookup
+            lookup_key = report.agent_key or self.registry.resolve_key(report.agent_name)
+            if not lookup_key:
+                self.logger.log_event(
+                    "ralph_loop",
+                    f"WARNING: Could not resolve agent key for '{report.agent_name}' — "
+                    f"skipping escalation lookup",
+                )
+                continue
 
-                        self.logger.log_escalation(
-                            from_agent=report.agent_name,
-                            to_agent=target,
-                            reason=reason,
-                        )
+            # Find Tier 2 targets for this agent
+            targets = self.registry.get_escalation_targets(lookup_key)
+            if targets:
+                for target in targets:
+                    reason = (
+                        report.escalation_notes
+                        or f"Low confidence ({report.confidence_level:.0%})"
+                    )
+                    escalations.append({
+                        "from_agent": lookup_key,
+                        "to_agent": target,
+                        "reason": reason,
+                        "source_report_name": report.agent_name,
+                    })
+
+                    self.logger.log_escalation(
+                        from_agent=report.agent_name,
+                        to_agent=target,
+                        reason=reason,
+                    )
+            else:
+                self.logger.log_event(
+                    "ralph_loop",
+                    f"No Tier 2 targets found for '{lookup_key}' — "
+                    f"escalation cannot be routed",
+                )
 
         return escalations
 
@@ -339,21 +364,26 @@ class RalphLoop:
             )
             return True
 
-        # Criterion 2: Quality threshold met
+        # Criterion 2: Quality threshold met — uses escalation_pending property
         threshold = self.config.ralph_loop.quality_threshold
         if reports:
             avg_confidence = sum(r.confidence_level for r in reports) / len(reports)
-            no_pending_escalations = not any(
-                r.escalation_used and not r.escalation_notes
-                for r in reports
-            )
+            pending_escalations = [
+                r for r in reports if r.escalation_pending
+            ]
 
-            if avg_confidence >= threshold and no_pending_escalations:
+            if avg_confidence >= threshold and not pending_escalations:
                 self.logger.log_event(
                     "ralph_loop",
                     f"Quality threshold met: avg confidence={avg_confidence:.0%}",
                 )
                 return True
+            elif pending_escalations:
+                self.logger.log_event(
+                    "ralph_loop",
+                    f"Pending escalations from: "
+                    f"{', '.join(r.agent_name for r in pending_escalations)}",
+                )
 
         return False
 

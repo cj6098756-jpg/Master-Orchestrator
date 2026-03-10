@@ -24,3 +24,8 @@ dir = "sessions"         # Directory for session persistence
 permission_mode      = "acceptEdits"  # acceptEdits, bypassPermissions, default
 max_turns_per_agent  = 10             # Max turns per individual agent call
 # max_budget_usd     = 5.0           # Hard cost cap per orchestration run
+
+[execution]
+max_concurrent_tasks = 3              # Max worker tasks running in parallel
+max_waves            = 10             # Max execution waves (dependency rounds)
+worker_max_turns     = 15             # Max turns per worker agent
