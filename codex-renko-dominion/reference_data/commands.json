@@ -1,0 +1,134 @@
+[
+  {
+    "name": "boot",
+    "description": "Run boot command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "env-check",
+    "description": "Run env-check command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "schema",
+    "description": "Run schema command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "ingest",
+    "description": "Run ingest command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "hurst",
+    "description": "Run hurst command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "renko",
+    "description": "Run renko command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "fct",
+    "description": "Run fct command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "doctrine",
+    "description": "Run doctrine command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "backtest",
+    "description": "Run backtest command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "wfo",
+    "description": "Run wfo command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "monte-carlo",
+    "description": "Run monte-carlo command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "crt",
+    "description": "Run crt command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "strategy",
+    "description": "Run strategy command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "lot-ladder",
+    "description": "Run lot-ladder command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "send-order",
+    "description": "Run send-order command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "dashboard",
+    "description": "Run dashboard command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "kairos",
+    "description": "Run kairos command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "parity-audit",
+    "description": "Run parity-audit command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "mwp-run",
+    "description": "Run mwp-run command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "session",
+    "description": "Run session command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "query",
+    "description": "Run query command",
+    "module": "main",
+    "requires_key": null
+  },
+  {
+    "name": "history",
+    "description": "Run history command",
+    "module": "main",
+    "requires_key": null
+  }
+]
