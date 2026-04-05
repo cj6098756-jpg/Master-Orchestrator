@@ -1,0 +1,37 @@
+{
+  "deny_patterns": [
+    "rm -rf",
+    "os.system",
+    "subprocess",
+    "exec(",
+    "eval(",
+    "__import__",
+    "open(",
+    "shutil.rmtree",
+    "drop table",
+    "delete from",
+    "format c:",
+    "> /dev/",
+    "curl | bash"
+  ],
+  "allow_list": [
+    "python main.py",
+    "pytest",
+    "pip install",
+    "fct",
+    "hurst",
+    "backtest",
+    "wfo",
+    "monte-carlo",
+    "lot-ladder",
+    "doctrine",
+    "renko",
+    "dashboard",
+    "kairos",
+    "session",
+    "history",
+    "mwp-run",
+    "crt"
+  ],
+  "version": "1.0"
+}
