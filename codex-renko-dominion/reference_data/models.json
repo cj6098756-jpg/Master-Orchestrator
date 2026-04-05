@@ -1,0 +1,26 @@
+{
+  "claude-opus-4-5": {
+    "context_window": 200000,
+    "cost_per_1k_input": 0.015,
+    "cost_per_1k_output": 0.075,
+    "provider": "anthropic"
+  },
+  "claude-sonnet-4-5": {
+    "context_window": 200000,
+    "cost_per_1k_input": 0.003,
+    "cost_per_1k_output": 0.015,
+    "provider": "anthropic"
+  },
+  "claude-haiku-3-5": {
+    "context_window": 200000,
+    "cost_per_1k_input": 0.00025,
+    "cost_per_1k_output": 0.00125,
+    "provider": "anthropic"
+  },
+  "qwen/qwen3-32b": {
+    "context_window": 32768,
+    "cost_per_1k_input": 7e-05,
+    "cost_per_1k_output": 0.00028,
+    "provider": "openrouter"
+  }
+}
